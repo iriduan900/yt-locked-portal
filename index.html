@@ -39,9 +39,7 @@
       display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
       gap:14px;
     }
-    .card{
-      background:transparent; border-radius:14px; overflow:hidden; cursor:pointer;
-    }
+    .card{background:transparent; border-radius:14px; overflow:hidden; cursor:pointer}
     .thumb{
       width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:14px;
       border:1px solid var(--line); background:#111;
@@ -59,10 +57,10 @@
 <header>
   <div class="logo">Locked<span>Tube</span></div>
   <div class="search">
-    <input id="q" placeholder="Search only inside allowed channels…" />
+    <input id="q" placeholder="Search MrBeast only…" />
     <button id="btnSearch">Search</button>
   </div>
-  <div class="pill" id="quota"></div>
+  <div class="pill" id="mode"></div>
 </header>
 
 <main>
@@ -79,12 +77,13 @@
   <section>
     <div class="row">
       <h2 style="margin:0;font-size:16px">Videos</h2>
-      <div class="pill" id="mode"></div>
+      <div class="pill" id="count"></div>
     </div>
     <div class="grid" id="grid"></div>
   </section>
 </main>
 
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
