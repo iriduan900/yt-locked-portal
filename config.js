@@ -3,4 +3,6 @@ window.LOCKEDTUBE_CONFIG = {
   allowedHandles: ["MrBeast"],
   maxPerChannel: 24,
   hideShorts: true
+    // ✅ remove anything below 1 minute
+  minDurationSeconds: 60
 };
