@@ -7,7 +7,7 @@
   <style>
     :root{
       --bg:#0f0f0f; --panel:#181818; --muted:#aaa; --text:#fff; --line:#2a2a2a;
-      --accent:#3ea6ff;
+      --accent:#3ea6ff; --danger:#ff5a5a;
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
@@ -16,9 +16,9 @@
       display:flex; gap:12px; align-items:center;
       padding:12px 16px; background:rgba(15,15,15,.95); border-bottom:1px solid var(--line);
     }
-    .logo{font-weight:700; letter-spacing:.3px}
+    .logo{font-weight:700; letter-spacing:.3px; white-space:nowrap}
     .logo span{color:var(--accent)}
-    .search{flex:1; display:flex; gap:8px}
+    .search{flex:1; display:flex; gap:8px; min-width: 240px}
     input{
       width:100%; padding:10px 12px; border-radius:999px;
       border:1px solid var(--line); background:#121212; color:var(--text);
@@ -27,8 +27,11 @@
     button{
       padding:10px 14px; border-radius:999px; border:1px solid var(--line);
       background:var(--panel); color:var(--text); cursor:pointer;
+      white-space:nowrap;
     }
     button:hover{border-color:#3a3a3a}
+    .btnAccent{border-color:#1f4a66}
+    .btnAccent:hover{border-color:#2c6f99}
     main{display:grid; grid-template-columns: 1fr; gap:16px; padding:16px; max-width:1200px; margin:0 auto}
     .playerWrap{background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden}
     .player{width:100%; aspect-ratio: 16/9; border:0; display:block}
@@ -48,18 +51,67 @@
     .cardTitle{font-size:14px; font-weight:600; line-height:1.25; margin:0 0 4px}
     .cardSub{color:var(--muted); font-size:12px}
     .row{display:flex; align-items:center; gap:10px; justify-content:space-between}
-    .pill{font-size:12px; color:var(--muted)}
+    .pill{font-size:12px; color:var(--muted); white-space:nowrap}
     .warn{background:#2b1b1b;border:1px solid #5a2a2a;color:#ffd7d7;padding:10px 12px;border-radius:12px}
     a{color:var(--accent)}
+
+    /* Modal */
+    .overlay{
+      position:fixed; inset:0; background:rgba(0,0,0,.65);
+      display:none; align-items:center; justify-content:center; padding:16px;
+      z-index:999;
+    }
+    .modal{
+      width:min(720px, 100%);
+      background:#111;
+      border:1px solid var(--line);
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow: 0 10px 35px rgba(0,0,0,.45);
+    }
+    .modalHeader{
+      display:flex; justify-content:space-between; align-items:center;
+      padding:14px 16px; border-bottom:1px solid var(--line);
+      background: #121212;
+    }
+    .modalHeader h3{margin:0; font-size:14px}
+    .modalBody{padding:14px 16px; display:grid; gap:12px}
+    .list{
+      border:1px solid var(--line);
+      border-radius:14px;
+      overflow:hidden;
+      background:#0f0f0f;
+    }
+    .listRow{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 12px; border-top:1px solid var(--line);
+    }
+    .listRow:first-child{border-top:none}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px}
+    .danger{
+      border-color:#5a2a2a;
+      color:#ffd7d7;
+    }
+    .danger:hover{border-color:#8a3a3a}
+    .hint{color:var(--muted); font-size:12px; line-height:1.35}
+    .row2{display:flex; gap:10px; flex-wrap:wrap}
+    .row2 > *{flex:1}
+    .status{font-size:12px; color:var(--muted)}
   </style>
 </head>
 <body>
 <header>
   <div class="logo">Locked<span>Tube</span></div>
+
   <div class="search">
-    <input id="q" placeholder="Search MrBeast only…" />
+    <input id="q" placeholder="Search only inside allowed channels…" />
     <button id="btnSearch">Search</button>
   </div>
+
+  <button id="btnAllowed" class="btnAccent">Allowed Channels</button>
+  <button id="btnAdd" class="btnAccent">Add Channel</button>
+  <button id="btnRemove" class="btnAccent danger">Remove Channel</button>
+
   <div class="pill" id="mode"></div>
 </header>
 
@@ -82,6 +134,41 @@
     <div class="grid" id="grid"></div>
   </section>
 </main>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modalHeader">
+      <h3 id="modalTitle">Allowed Channels</h3>
+      <button id="btnClose">Close</button>
+    </div>
+    <div class="modalBody">
+      <div class="hint" id="modalHint"></div>
+
+      <div id="adminArea" style="display:none">
+        <div class="row2">
+          <input id="pw" type="password" placeholder="Admin password" />
+          <input id="handle" placeholder="Channel handle (without @), e.g. MrBeast" />
+        </div>
+        <div class="row2">
+          <button id="btnDoAdd" class="btnAccent">Add</button>
+          <button id="btnDoRemove" class="danger">Remove</button>
+        </div>
+        <div class="status" id="adminStatus"></div>
+      </div>
+
+      <div class="list" id="handleList"></div>
+
+      <div class="hint">
+        Notes:
+        <ul>
+          <li>Changes are saved in this browser (localStorage).</li>
+          <li>“Password lock” is a casual barrier, not high security.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
