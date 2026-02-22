@@ -8,6 +8,7 @@ const $playerTitle = document.getElementById("playerTitle");
 const $playerSub = document.getElementById("playerSub");
 const $mode = document.getElementById("mode");
 const $warning = document.getElementById("warning");
+const $count = document.getElementById("count");
 
 function showWarn(msg) {
   $warning.style.display = "block";
@@ -16,20 +17,36 @@ function showWarn(msg) {
 
 function apiUrl(path, params) {
   const u = new URL("https://www.googleapis.com/youtube/v3/" + path);
-  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k, v));
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   u.searchParams.set("key", cfg.apiKey);
   return u.toString();
 }
 
+function escapeHtml(s){
+  return String(s||"").replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+  }[c]));
+}
+
+// Best-effort “shorts” filter (many Shorts have #shorts in title)
 function isProbablyShort(item) {
   if (!cfg.hideShorts) return false;
   const t = (item?.snippet?.title || "").toLowerCase();
-  return t.includes("#shorts") || t.includes("shorts");
+  return t.includes("#shorts") || t.includes(" shorts") || t.startsWith("shorts");
+}
+
+function play(videoId, title, channel) {
+  $playerWrap.style.display = "block";
+  // rel=0 reduces related videos from other channels in many cases, but YouTube can still show some.
+  $player.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0&modestbranding=1`;
+  $playerTitle.textContent = title;
+  $playerSub.textContent = channel;
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function card(video) {
   const vid = video.id?.videoId || video.id;
-  const sn = video.snippet;
+  const sn = video.snippet || {};
   const thumb = sn.thumbnails?.medium?.url || sn.thumbnails?.default?.url || "";
   const title = sn.title || "";
   const channel = sn.channelTitle || "";
@@ -48,32 +65,18 @@ function card(video) {
   return el;
 }
 
-function play(videoId, title, channel) {
-  $playerWrap.style.display = "block";
-  $player.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0&modestbranding=1`;
-  $playerTitle.textContent = title;
-  $playerSub.textContent = channel;
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function escapeHtml(s){
-  return String(s||"").replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
-  }[c]));
-}
-
-// 1) Resolve @handle -> channelId
+// Resolve @handle -> channelId
 async function getChannelIdFromHandle(handle) {
-  // YouTube Data API supports "forHandle" on channels.list
+  // Uses channels.list?forHandle=... (works for handles)
   const url = apiUrl("channels", { part: "id", forHandle: handle });
   const r = await fetch(url);
   const j = await r.json();
   const id = j?.items?.[0]?.id;
-  if (!id) throw new Error(`Could not resolve @${handle} to channelId`);
+  if (!id) throw new Error(`Could not resolve @${handle} to channelId (API may be restricted or handle not found).`);
   return id;
 }
 
-// 2) Fetch latest videos from a channel using search endpoint
+// Latest videos from a channel (search endpoint)
 async function latestFromChannel(channelId, maxResults) {
   const url = apiUrl("search", {
     part: "snippet",
@@ -87,7 +90,7 @@ async function latestFromChannel(channelId, maxResults) {
   return (j.items || []).filter(x => !isProbablyShort(x));
 }
 
-// 3) Search within a channel
+// Search within a channel
 async function searchInChannel(channelId, query, maxResults) {
   const url = apiUrl("search", {
     part: "snippet",
@@ -101,9 +104,16 @@ async function searchInChannel(channelId, query, maxResults) {
   return (j.items || []).filter(x => !isProbablyShort(x));
 }
 
+function sortByDateDesc(items) {
+  items.sort((a,b) => (b.snippet?.publishedAt || "").localeCompare(a.snippet?.publishedAt || ""));
+  return items;
+}
+
 async function loadHome() {
-  $mode.textContent = "Latest videos (allowed channels)";
+  $mode.textContent = "MrBeast • Latest";
   $grid.innerHTML = "";
+  $warning.style.display = "none";
+  $count.textContent = "";
 
   if (!cfg.apiKey || cfg.apiKey.includes("PASTE_")) {
     showWarn(`Paste your YouTube API key in <b>config.js</b>.`);
@@ -120,25 +130,28 @@ async function loadHome() {
   for (const h of handles) {
     try {
       const channelId = await getChannelIdFromHandle(h);
-      const items = await latestFromChannel(channelId, cfg.maxPerChannel || 12);
+      const items = await latestFromChannel(channelId, cfg.maxPerChannel || 24);
       videos.push(...items);
     } catch (e) {
-      showWarn(`Problem loading @${escapeHtml(h)}: ${escapeHtml(e.message)}<br/>`);
+      showWarn(`Problem loading @${escapeHtml(h)}: ${escapeHtml(e.message)}<br/>
+        If you restricted the API key, make sure the referrer allows your GitHub Pages domain.`);
+      return;
     }
   }
 
-  // Sort by publish date desc
-  videos.sort((a,b) => (b.snippet.publishedAt || "").localeCompare(a.snippet.publishedAt || ""));
-
+  sortByDateDesc(videos);
   videos.forEach(v => $grid.appendChild(card(v)));
+  $count.textContent = `${videos.length} videos`;
 }
 
 async function doSearch() {
   const query = String($q.value || "").trim();
   if (!query) return;
 
-  $mode.textContent = `Search: "${query}" (allowed channels only)`;
+  $mode.textContent = `MrBeast • Search: "${query}"`;
   $grid.innerHTML = "";
+  $warning.style.display = "none";
+  $count.textContent = "";
 
   const handles = (cfg.allowedHandles || []).map(h => String(h||"").trim()).filter(Boolean);
 
@@ -146,21 +159,21 @@ async function doSearch() {
   for (const h of handles) {
     try {
       const channelId = await getChannelIdFromHandle(h);
-      const items = await searchInChannel(channelId, query, cfg.maxPerChannel || 12);
+      const items = await searchInChannel(channelId, query, cfg.maxPerChannel || 24);
       results.push(...items);
     } catch (e) {
-      // ignore individual channel errors in search
+      showWarn(`Search failed: ${escapeHtml(e.message)}`);
+      return;
     }
   }
 
-  // simple sort by date
-  results.sort((a,b) => (b.snippet.publishedAt || "").localeCompare(a.snippet.publishedAt || ""));
+  sortByDateDesc(results);
   results.forEach(v => $grid.appendChild(card(v)));
+  $count.textContent = `${results.length} results`;
 }
 
 $btn.addEventListener("click", doSearch);
-$q.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") doSearch();
-});
+$q.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
 
+// Load home on start
 loadHome();
